@@ -1,0 +1,47 @@
+Using device: mps
+Loading dataset...
+   ✅ Loaded 2,852,986 from cache
+['#', '(', ')', '+', '-', '.', '/', '1', '2', '3', '4', '5', '6', '7', '8', '9', '=', '@', 'A', 'B', 'C', 'F', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'S', 'T', 'Z', '[', '\\', ']', 'a', 'b', 'c', 'e', 'g', 'i', 'l', 'n', 'o', 'p', 'r', 's', 't']
+ChemblGraphDataset: 50000 valid graphs, 0 skipped (invalid SMILES)
+Training on 50000 molecules, 391 batches/epoch
+Epoch  1/40 | kl_w=0.0008 | total=1.8104 | atom=0.8023 | bond=1.0049 | kl=3.8997
+Epoch  2/40 | kl_w=0.0016 | total=1.6920 | atom=0.7260 | bond=0.9505 | kl=9.6946
+Epoch  3/40 | kl_w=0.0024 | total=1.6363 | atom=0.6952 | bond=0.9142 | kl=11.1854
+Epoch  4/40 | kl_w=0.0032 | total=1.5907 | atom=0.6638 | bond=0.8918 | kl=11.0101
+Epoch  5/40 | kl_w=0.0040 | total=1.5622 | atom=0.6455 | bond=0.8756 | kl=10.2565
+Epoch  6/40 | kl_w=0.0048 | total=1.5382 | atom=0.6256 | bond=0.8627 | kl=10.3954
+Epoch  7/40 | kl_w=0.0056 | total=1.5150 | atom=0.6070 | bond=0.8505 | kl=10.2600
+Epoch  8/40 | kl_w=0.0064 | total=1.5023 | atom=0.5947 | bond=0.8426 | kl=10.1542
+Epoch  9/40 | kl_w=0.0072 | total=1.4992 | atom=0.5891 | bond=0.8379 | kl=10.0201
+Epoch 10/40 | kl_w=0.0080 | total=1.4982 | atom=0.5854 | bond=0.8336 | kl=9.8942
+Epoch 11/40 | kl_w=0.0088 | total=1.4984 | atom=0.5828 | bond=0.8306 | kl=9.6637
+Epoch 12/40 | kl_w=0.0096 | total=1.5010 | atom=0.5823 | bond=0.8284 | kl=9.4156
+Epoch 13/40 | kl_w=0.0104 | total=1.5062 | atom=0.5831 | bond=0.8274 | kl=9.2045
+Epoch 14/40 | kl_w=0.0112 | total=1.5076 | atom=0.5818 | bond=0.8253 | kl=8.9755
+Epoch 15/40 | kl_w=0.0120 | total=1.5124 | atom=0.5824 | bond=0.8245 | kl=8.7857
+Epoch 16/40 | kl_w=0.0128 | total=1.5164 | atom=0.5829 | bond=0.8242 | kl=8.5451
+Epoch 17/40 | kl_w=0.0136 | total=1.5203 | atom=0.5833 | bond=0.8233 | kl=8.3591
+Epoch 18/40 | kl_w=0.0144 | total=1.5241 | atom=0.5835 | bond=0.8227 | kl=8.1947
+Epoch 19/40 | kl_w=0.0152 | total=1.5288 | atom=0.5849 | bond=0.8229 | kl=7.9656
+Epoch 20/40 | kl_w=0.0160 | total=1.5338 | atom=0.5854 | bond=0.8231 | kl=7.8276
+Epoch 21/40 | kl_w=0.0168 | total=1.5387 | atom=0.5873 | bond=0.8231 | kl=7.6387
+Epoch 22/40 | kl_w=0.0176 | total=1.5399 | atom=0.5861 | bond=0.8218 | kl=7.4987
+Epoch 23/40 | kl_w=0.0184 | total=1.5450 | atom=0.5875 | bond=0.8223 | kl=7.3461
+Epoch 24/40 | kl_w=0.0192 | total=1.5508 | atom=0.5893 | bond=0.8235 | kl=7.1862
+Epoch 25/40 | kl_w=0.0200 | total=1.5547 | atom=0.5901 | bond=0.8235 | kl=7.0532
+Epoch 26/40 | kl_w=0.0200 | total=1.5525 | atom=0.5886 | bond=0.8227 | kl=7.0590
+Epoch 27/40 | kl_w=0.0200 | total=1.5513 | atom=0.5883 | bond=0.8215 | kl=7.0759
+Epoch 28/40 | kl_w=0.0200 | total=1.5498 | atom=0.5869 | bond=0.8205 | kl=7.1202
+Epoch 29/40 | kl_w=0.0200 | total=1.5489 | atom=0.5864 | bond=0.8201 | kl=7.1172
+Epoch 30/40 | kl_w=0.0200 | total=1.5472 | atom=0.5848 | bond=0.8193 | kl=7.1521
+Epoch 31/40 | kl_w=0.0200 | total=1.5456 | atom=0.5838 | bond=0.8182 | kl=7.1807
+Epoch 32/40 | kl_w=0.0200 | total=1.5434 | atom=0.5818 | bond=0.8168 | kl=7.2444
+Epoch 33/40 | kl_w=0.0200 | total=1.5429 | atom=0.5803 | bond=0.8157 | kl=7.3453
+Epoch 34/40 | kl_w=0.0200 | total=1.5410 | atom=0.5781 | bond=0.8143 | kl=7.4329
+Epoch 35/40 | kl_w=0.0200 | total=1.5390 | atom=0.5763 | bond=0.8134 | kl=7.4627
+Epoch 36/40 | kl_w=0.0200 | total=1.5385 | atom=0.5754 | bond=0.8128 | kl=7.5175
+Epoch 37/40 | kl_w=0.0200 | total=1.5354 | atom=0.5737 | bond=0.8108 | kl=7.5421
+Epoch 38/40 | kl_w=0.0200 | total=1.5344 | atom=0.5727 | bond=0.8100 | kl=7.5850
+Epoch 39/40 | kl_w=0.0200 | total=1.5336 | atom=0.5720 | bond=0.8091 | kl=7.6226
+Epoch 40/40 | kl_w=0.0200 | total=1.5334 | atom=0.5714 | bond=0.8087 | kl=7.6648
+Training complete. Checkpoint saved to vae_checkpoint.pt

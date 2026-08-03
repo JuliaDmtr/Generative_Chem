@@ -1,0 +1,31 @@
+# Python bytecode and build artifacts
+__pycache__/
+*.py[cod]
+build/
+dist/
+wheels/
+*.egg-info/
+*.so
+
+# Virtual environments
+.venv/
+.env/
+venv/
+
+# Local editor/runtime files
+.DS_Store
+.pytest_cache/
+.python-version
+*.log
+*.png
+*.ipynb_checkpoints/
+
+# Large local data and artifacts
+Datasets/
+*.pt
+*.pth
+*.ckpt
+
+# Local prompt and run-specific files
+prompt.txt
+uv.lock

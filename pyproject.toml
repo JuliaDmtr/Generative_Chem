@@ -1,0 +1,19 @@
+[project]
+name = "parp-dif-mod"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.1",
+    "pandas>=3.0.5",
+    "rdkit>=2026.3.4",
+    "matplotlib>=3.8.0",
+    "torch==2.8.0",
+    "torch-geometric==2.8.0.post1",
+    "pyg-lib",
+    "torch-scatter",
+    "torch-sparse",
+    "torch-cluster",
+    "torch-spline-conv",
+]
