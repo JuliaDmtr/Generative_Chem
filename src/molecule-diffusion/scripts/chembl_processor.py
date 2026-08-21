@@ -1,12 +1,12 @@
-
 import gc
 import pandas as pd
-from sklearn.model_selection import train_test_split 
+from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 import random
 
+
 class ChemblProcessor:
-    def __init__(self, data_path_prefix='../../Datasets/'):
+    def __init__(self, data_path_prefix='../..Datasets/'):
         self.data_path_prefix = data_path_prefix
         self.start_char = '$'
         self.end_char = 'E'
@@ -18,18 +18,19 @@ class ChemblProcessor:
         self.max_smile_length = None
         self.column_names = None
         self.cache_file = f'{data_path_prefix}chembl_canonical_cache.txt'
+
     def make_samples(self, num_samples: int, max_len_of_sample: int) -> list:
         """
         Docstring for samples
-        Sample number of molecules from dataset 
+        Sample number of molecules from dataset
         input: number of samples, dataset
         output: list of sampled SMILES strings
         """
         with open(self.cache_file, 'r') as f:
             chembl_canonical = set(line.strip() for line in f)
             print(f"   ✅ Loaded {len(chembl_canonical):,} from cache")
-        # shufle dataset        
-        chembl_canonical = shuffle(list(chembl_canonical   ), random_state=0)
+        # shufle dataset
+        chembl_canonical = shuffle(list(chembl_canonical), random_state=0)
         # select num_samples from dataset
         samples = [s for s in chembl_canonical if len(s) <= max_len_of_sample][:num_samples]
         # determine the maximum length of the sampled SMILES strings
@@ -39,7 +40,7 @@ class ChemblProcessor:
 
         print(sorted(self.unique_chars))
         return samples
-    
+
     def prepare_data_for_lstm(self, dataset_filtered: list) -> tuple[list, list]:
         if self.start_char in self.unique_chars or self.end_char in self.unique_chars:
             raise ValueError("Start and end characters must not be present in the dataset.")
@@ -60,7 +61,6 @@ class ChemblProcessor:
         print("unique chars after adding special tokens: ", ordered_chars)
         print("number of unique chars after adding special tokens: ", len(ordered_chars))
         print("padding char: ", self.padding_char)
-        
 
         self.char_to_int = {c: i for i, c in enumerate(ordered_chars)}
         self.int_to_char = {i: c for i, c in enumerate(ordered_chars)}

@@ -25,7 +25,25 @@ Datasets/
 *.pt
 *.pth
 *.ckpt
+*.npz
+
+# Generated demo output (regenerable via generate.py / evaluate.py)
+src/molecule-diffusion/samples/
+src/molecule-diffusion/renders/
+
+# Live/in-progress training logs (regenerated each run)
+src/molecule-diffusion/train_v2_log.txt
 
 # Local prompt and run-specific files
 prompt.txt
 uv.lock
+
+# Personal-use files (not for the public repo)
+papers/
+skills/
+
+# Abandoned early-stage approaches (kept locally, not tracked on GitHub)
+src/graph_vae/
+src/smiles_diffusion/
+src/smiles_vae/
+src/tests/
