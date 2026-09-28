@@ -32,13 +32,24 @@ except ImportError:
     raise
 
 
-def mol_from_coords(symbols, coords, charge: int = 0):
+def mol_from_coords(symbols, coords, charge: int = 0, cov_factor: float = 1.3,
+                     use_vdw: bool = False):
     """Build a sanitized RDKit Mol directly from atom symbols + (N, 3)
     coordinates (Angstroms), with no file I/O. Returns None if bond
     perception / sanitization fails. This is the in-memory counterpart of
     xyz_to_mol(), used for fast validity checks during training
     diagnostics (see train_conditional.py) where writing a .xyz file per
     molecule would be wasteful.
+
+    cov_factor is DetermineBonds' covalent-radius multiplier (RDKit
+    default 1.3): the distance cutoff for perceiving a bond between two
+    atoms is cov_factor * (sum of their covalent radii) — but ONLY when
+    use_vdw=True. With the RDKit default use_vdw=False (used everywhere
+    else in this project), DetermineBonds instead uses its own
+    connect-the-dots/xyz2mol-style heuristic that ignores cov_factor
+    entirely — confirmed empirically (see diagnose_scale.py sweep notes):
+    sweeping cov_factor from 0.5 to 2.0 with use_vdw=False produces byte-
+    identical results. Pass use_vdw=True to actually exercise cov_factor.
     """
     import numpy as np
     from rdkit.Geometry import Point3D
@@ -54,7 +65,7 @@ def mol_from_coords(symbols, coords, charge: int = 0):
     mol = raw.GetMol()
 
     try:
-        DetermineBonds(mol, charge=charge)
+        DetermineBonds(mol, charge=charge, covFactor=cov_factor, useVdw=use_vdw)
     except Exception:
         return None
 
@@ -79,9 +90,10 @@ def n_fragments(mol) -> int:
     return len(Chem.GetMolFrags(mol, sanitizeFrags=False))
 
 
-def xyz_to_mol(xyz_path: str, charge: int = 0):
+def xyz_to_mol(xyz_path: str, charge: int = 0, cov_factor: float = 1.3, use_vdw: bool = False):
     """Read one .xyz file and return a sanitized RDKit Mol, or None if
-    bond perception / sanitization fails.
+    bond perception / sanitization fails. See mol_from_coords for what
+    cov_factor/use_vdw control (cov_factor is a no-op unless use_vdw=True).
     """
     raw = Chem.MolFromXYZFile(xyz_path)
     if raw is None:
@@ -89,7 +101,7 @@ def xyz_to_mol(xyz_path: str, charge: int = 0):
 
     mol = Chem.Mol(raw)
     try:
-        DetermineBonds(mol, charge=charge)
+        DetermineBonds(mol, charge=charge, covFactor=cov_factor, useVdw=use_vdw)
     except Exception:
         return None  # distance-based bond perception failed — e.g. atoms
                       # too close/far for any plausible bond graph
@@ -103,7 +115,8 @@ def xyz_to_mol(xyz_path: str, charge: int = 0):
     return mol
 
 
-def convert_dir(xyz_dir: str, out_dir: str, charge: int = 0, image_size: int = 400):
+def convert_dir(xyz_dir: str, out_dir: str, charge: int = 0, image_size: int = 400,
+                 cov_factor: float = 1.3):
     """Convert every .xyz in xyz_dir to SMILES + a 2D depiction PNG.
     Returns (results, n_failed) where results is a list of
     (filename, smiles) for molecules that converted successfully.
@@ -116,10 +129,11 @@ def convert_dir(xyz_dir: str, out_dir: str, charge: int = 0, image_size: int = 4
     results = []
     n_failed = 0
     n_multi_fragment = 0
+    ring_hist: dict[int, int] = {}
 
     for path in xyz_files:
         name = os.path.splitext(os.path.basename(path))[0]
-        mol = xyz_to_mol(path, charge=charge)
+        mol = xyz_to_mol(path, charge=charge, cov_factor=cov_factor)
         if mol is None:
             n_failed += 1
             continue
@@ -128,6 +142,8 @@ def convert_dir(xyz_dir: str, out_dir: str, charge: int = 0, image_size: int = 4
         n_frags = n_fragments(mol)
         if n_frags > 1:
             n_multi_fragment += 1
+        for r in mol.GetRingInfo().AtomRings():
+            ring_hist[len(r)] = ring_hist.get(len(r), 0) + 1
         results.append((name, smiles, n_frags))
 
         # 2D depiction: recompute 2D coords for a clean layout rather than
@@ -152,6 +168,8 @@ def convert_dir(xyz_dir: str, out_dir: str, charge: int = 0, image_size: int = 4
         print(f"   Skipped {n_failed:,} that failed bond perception/sanitization "
               f"— this is expected for a diffusion model and reflects real model "
               f"quality, not a bug in this script.")
+    print(f"   Ring sizes (pooled across all converted molecules): "
+          f"{dict(sorted(ring_hist.items()))}")
 
     # Write a manifest alongside the images
     manifest_path = os.path.join(out_dir, "smiles.txt")
@@ -162,6 +180,51 @@ def convert_dir(xyz_dir: str, out_dir: str, charge: int = 0, image_size: int = 4
     print(f"💾 Wrote {len(results):,} PNG depictions to {out_dir}/")
 
     return results, n_failed
+
+
+def sweep_cov_factors(xyz_dir: str, cov_factors: list[float], charge: int = 0,
+                       use_vdw: bool = False):
+    """Re-run bond perception on an already-generated xyz_dir at several
+    DetermineBonds covFactor values, without regenerating molecules or
+    writing PNGs. Reports validity/single-molecule rate and pooled ring
+    histogram per covFactor, so a stricter covFactor's effect on the
+    3-membered-ring rate can be compared directly against a looser one on
+    the exact same geometries.
+
+    IMPORTANT: covFactor only affects DetermineBonds' behavior when
+    use_vdw=True (RDKit's van-der-Waals bonding method). With the default
+    use_vdw=False (the connect-the-dots/xyz2mol-style heuristic used
+    everywhere else in this project), covFactor is silently ignored and
+    every value in the sweep will produce byte-identical results — this
+    was confirmed empirically before adding the use_vdw plumbing. Pass
+    use_vdw=True for this sweep to mean anything.
+    """
+    xyz_files = sorted(glob.glob(os.path.join(xyz_dir, "*.xyz")))
+    if not xyz_files:
+        print(f"⚠️  No .xyz files found in {xyz_dir}", file=sys.stderr)
+        return
+
+    n_total = len(xyz_files)
+    print(f"\n=== covFactor sweep on {xyz_dir} ({n_total} files), use_vdw={use_vdw} ===")
+    if not use_vdw:
+        print("⚠️  use_vdw=False: covFactor has NO effect on DetermineBonds in this mode. "
+              "Pass --use-vdw to get a meaningful sweep.")
+    for cf in cov_factors:
+        n_valid = 0
+        n_single = 0
+        ring_hist: dict[int, int] = {}
+        for path in xyz_files:
+            mol = xyz_to_mol(path, charge=charge, cov_factor=cf, use_vdw=use_vdw)
+            if mol is None:
+                continue
+            n_valid += 1
+            if n_fragments(mol) == 1:
+                n_single += 1
+            for r in mol.GetRingInfo().AtomRings():
+                ring_hist[len(r)] = ring_hist.get(len(r), 0) + 1
+        print(f"covFactor={cf:.2f}  valid={n_valid:4d}/{n_total} ({n_valid/n_total:.1%})  "
+              f"single={n_single:4d}/{n_total} ({n_single/n_total:.1%})  "
+              f"rings={dict(sorted(ring_hist.items()))}")
 
 
 def main():
@@ -176,9 +239,30 @@ def main():
                          "molecules, which is what this model was trained on "
                          "— it doesn't diffuse formal charges, see approach.md)")
     p.add_argument("--image-size", type=int, default=400)
+    p.add_argument("--cov-factor", type=float, default=1.3,
+                    help="DetermineBonds' covalent-radius multiplier for the normal "
+                         "conversion run (RDKit default 1.3). Lower = stricter bond "
+                         "perception (fewer, shorter-range bonds accepted).")
+    p.add_argument("--cov-factor-sweep", type=str, default=None,
+                    help="Comma-separated covFactor values (e.g. '1.1,1.15,1.2,1.25,1.3') "
+                         "to compare on --xyz-dir instead of doing a normal conversion run. "
+                         "No PNGs/manifest written; prints validity + ring histogram per value. "
+                         "Only meaningful together with --use-vdw (see sweep_cov_factors).")
+    p.add_argument("--use-vdw", action="store_true",
+                    help="Use DetermineBonds' van-der-Waals bonding method, under which "
+                         "--cov-factor/--cov-factor-sweep actually have an effect. Off by "
+                         "default to match the connect-the-dots method used everywhere else "
+                         "in this project (train_conditional.py diagnostics, "
+                         "eval_checkpoint_trend.py).")
     args = p.parse_args()
 
-    convert_dir(args.xyz_dir, args.out_dir, charge=args.charge, image_size=args.image_size)
+    if args.cov_factor_sweep:
+        cov_factors = [float(v) for v in args.cov_factor_sweep.split(",") if v.strip()]
+        sweep_cov_factors(args.xyz_dir, cov_factors, charge=args.charge, use_vdw=args.use_vdw)
+        return
+
+    convert_dir(args.xyz_dir, args.out_dir, charge=args.charge, image_size=args.image_size,
+                cov_factor=args.cov_factor)
 
 
 if __name__ == "__main__":

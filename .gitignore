@@ -31,6 +31,11 @@ Datasets/
 src/molecule-diffusion/samples/
 src/molecule-diffusion/renders/
 
+# PARP results gallery, tracked on purpose so it renders for anyone who
+# clones the repo (overrides the *.png rule above for this folder only)
+!src/molecule-diffusion/parp_gallery/
+!src/molecule-diffusion/parp_gallery/**/*.png
+
 # Live/in-progress training logs (regenerated each run)
 src/molecule-diffusion/train_v2_log.txt
 

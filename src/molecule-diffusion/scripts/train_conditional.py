@@ -173,6 +173,12 @@ def main():
     p.add_argument("--diag-every", type=int, default=25, help="Epochs between validity diagnostics (0 disables).")
     p.add_argument("--diag-n-samples", type=int, default=64)
     p.add_argument("--diag-n-steps", type=int, default=200, help="Diffusion steps used for diagnostic sampling (fewer = faster).")
+    p.add_argument("--angle-loss-weight", type=float, default=0.0,
+                    help="Weight for the auxiliary angle-consistency penalty (0 disables it, "
+                         "fully backward compatible). Penalizes near-60-degree angles among each "
+                         "atom's nearest predicted neighbors -- targets the strained 3-membered-ring "
+                         "geometry diagnose_scale.py's angle diagnostic confirmed. See "
+                         "diffusion.angle_consistency_penalty() for the exact mechanism.")
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
@@ -201,6 +207,7 @@ def main():
 
     model = EquivariantMoleculeDiffusion(
         hidden_dim=args.hidden_dim, n_layers=args.n_layers, timesteps=args.timesteps, cond_dim=COND_DIM,
+        angle_loss_weight=args.angle_loss_weight,
     ).to(device)
     ema = EMA(model, decay=args.ema_decay)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-12)
@@ -221,6 +228,15 @@ def main():
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs, eta_min=args.lr_min)
 
+    def build_checkpoint_payload(global_epoch):
+        return {
+            "model_state": model.state_dict(),
+            "ema_state": ema.state_dict(),
+            "optimizer_state": opt.state_dict(),
+            "args": vars(args) | {"cond_dim": COND_DIM},
+            "epoch": global_epoch,
+        }
+
     def save_checkpoint(global_epoch, also_tag=False):
         # Always overwrite args.out (the "latest" pointer, used by --resume
         # and generate.py by default). When also_tag is set, ALSO write a
@@ -228,13 +244,7 @@ def main():
         # is what lets a later run rebuild a real epoch-vs-validity trend
         # (see eval_checkpoint_trend.py), unlike periodic saves that all
         # clobbered the same --out path in earlier runs.
-        payload = {
-            "model_state": model.state_dict(),
-            "ema_state": ema.state_dict(),
-            "optimizer_state": opt.state_dict(),
-            "args": vars(args) | {"cond_dim": COND_DIM},
-            "epoch": global_epoch,
-        }
+        payload = build_checkpoint_payload(global_epoch)
         torch.save(payload, args.out)
         if also_tag:
             base, ext = os.path.splitext(args.out)
@@ -242,6 +252,17 @@ def main():
             torch.save(payload, tagged_path)
             return tagged_path
         return None
+
+    # Tracks the checkpoint with the best PARP-conditioned single-molecule
+    # rate seen so far (the stricter of the two diagnostic metrics — one
+    # fully connected, chemically valid molecule, not just RDKit-sanitized
+    # fragments). Loss (loss_x/loss_h) can plateau or even look flat while
+    # validity is still non-monotonic across epochs (confirmed via
+    # eval_checkpoint_trend.py: the final epoch of a run is not always the
+    # best-validating one), so this is tracked independently of --ckpt-every
+    # and never overwritten by a later, worse-validating epoch.
+    best_pos_single = -1.0
+    best_path = None
 
     for epoch in range(args.epochs):
         global_epoch = start_epoch + epoch
@@ -256,7 +277,7 @@ def main():
             collate_fn=lambda batch: collate_with_cond(batch, max_atoms=max_atoms_batch),
         )
 
-        running = {"loss": 0.0, "loss_x": 0.0, "loss_h": 0.0, "n": 0}
+        running = {"loss": 0.0, "loss_x": 0.0, "loss_h": 0.0, "loss_angle": 0.0, "n": 0}
         for x0, h0, node_mask, cond in loader:
             x0, h0, node_mask, cond = x0.to(device), h0.to(device), node_mask.to(device), cond.to(device)
 
@@ -270,14 +291,16 @@ def main():
             running["loss"] += loss.item()
             running["loss_x"] += parts["loss_x"]
             running["loss_h"] += parts["loss_h"]
+            running["loss_angle"] += parts.get("loss_angle", 0.0)
             running["n"] += 1
 
         scheduler.step()
 
         if epoch % args.log_every == 0 or epoch == args.epochs - 1:
             n = max(running["n"], 1)
+            angle_part = f", angle {running['loss_angle']/n:.4f}" if args.angle_loss_weight > 0 else ""
             print(f"epoch {global_epoch:4d} | loss {running['loss']/n:.4f} "
-                  f"(x {running['loss_x']/n:.4f}, h {running['loss_h']/n:.4f}) "
+                  f"(x {running['loss_x']/n:.4f}, h {running['loss_h']/n:.4f}{angle_part}) "
                   f"| lr {scheduler.get_last_lr()[0]:.2e} | {time.time()-t0:.1f}s")
 
         if args.diag_every and (epoch % args.diag_every == 0 or epoch == args.epochs - 1) and epoch > 0:
@@ -294,12 +317,26 @@ def main():
                   f"null: {null_validity:.1%} ({null_single:.1%}), "
                   f"PARP-conditioned: {pos_validity:.1%} ({pos_single:.1%})")
 
+            if pos_single > best_pos_single:
+                best_pos_single = pos_single
+                base, ext = os.path.splitext(args.out)
+                best_path = f"{base}_best{ext}"
+                torch.save(build_checkpoint_payload(global_epoch), best_path)
+                print(f"   [checkpoint] new best PARP-conditioned single-molecule rate "
+                      f"({pos_single:.1%}) at epoch {global_epoch} — saved to {best_path}")
+
         if args.ckpt_every and epoch > 0 and (epoch % args.ckpt_every == 0):
             tagged = save_checkpoint(global_epoch, also_tag=True)
             print(f"   [checkpoint] saved epoch {global_epoch} to {args.out} (and {tagged})")
 
     final_tagged = save_checkpoint(start_epoch + args.epochs - 1, also_tag=True)
     print(f"Saved final checkpoint to {args.out} (and {final_tagged})")
+    if best_path:
+        print(f"Best PARP-conditioned single-molecule rate during this run: "
+              f"{best_pos_single:.1%}, saved separately to {best_path} "
+              f"(NOT necessarily the same as the final/latest checkpoint above — "
+              f"validity is not monotonic across epochs, so prefer this one for "
+              f"generation unless you have a specific reason to use the final epoch).")
 
 
 if __name__ == "__main__":

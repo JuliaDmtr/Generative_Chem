@@ -56,7 +56,7 @@ def main():
     p.add_argument("--n-steps", type=int, default=None, help="Override sampling steps (default: model's trained timesteps).")
     p.add_argument("--use-ema", action="store_true", default=True)
     p.add_argument("--out-dir", type=str, default="samples")
-    p.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    p.add_argument("--device", type=str, default="mps" if torch.backends.mps.is_available() else "cpu")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--condition", type=str, default=None, choices=list(CONDITION_NAME_TO_LABEL),
                     help="Only for checkpoints trained with conditioning (train_conditional.py): "

@@ -18,6 +18,18 @@ ATOM2IDX = {a: i for i, a in enumerate(ATOM_VOCAB)}
 IDX2ATOM = {i: a for a, i in ATOM2IDX.items()}
 NUM_ATOM_TYPES = len(ATOM_VOCAB)
 
+# Relative input scaling between the coordinate (x) and atom-type (h)
+# channels, applied ONLY to what's fed into the denoiser network — not to
+# the diffused state/targets themselves (see diffusion.py: net_h_input).
+# From Hoogeboom et al. 2022 (EDM), "Scaling Features": feeding h into the
+# network at a smaller scale than x biases the denoising process to
+# resolve rough positions first and decide atom types afterward. Their
+# controlled ablation (paper Table 10) shows this alone takes molecule
+# stability from 46.9% to 82.0% on QM9 (atom stability 95.7% -> 98.7%),
+# with no other change. Scaling x itself would need a log-likelihood
+# correction (continuous data); scaling h does not (categorical/one-hot).
+H_SCALE = 0.25
+
 
 # Conditioning labels for the PARP-conditional model (see
 # scripts/train_conditional.py). This is a simple 3-way class-conditioning

@@ -6,7 +6,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from diffusion import EquivariantMoleculeDiffusion  # noqa: E402
+from diffusion import EquivariantMoleculeDiffusion, angle_consistency_penalty  # noqa: E402
 from utils import NUM_ATOM_TYPES, cosine_alpha_bar, remove_mean_with_mask  # noqa: E402
 
 
@@ -87,6 +87,64 @@ def test_loss_decreases_with_a_few_gradient_steps():
         losses.append(loss.item())
 
     assert sum(losses[-5:]) / 5 < sum(losses[:5]) / 5
+
+
+def test_angle_penalty_high_for_60_degrees_low_for_180():
+    """Direct sanity check of angle_consistency_penalty's core claim: a
+    center atom with two neighbors exactly 60 degrees apart (the
+    cyclopropane-like angle diagnose_scale.py flagged as overrepresented
+    in generated molecules) should score near the penalty's max (1.0,
+    since cos(60deg)=0.5 is exactly the Gaussian bump's center), while a
+    180-degree (straight-line) arrangement should score near zero.
+    """
+    # 3 atoms: atom 0 at origin, two unit-distance neighbors at 60 degrees
+    # apart from each other (as seen from atom 0).
+    x0_60 = torch.tensor([[
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.5, 0.8660254, 0.0],  # 60 degrees from (1,0,0)
+    ]])
+    node_mask = torch.ones(1, 3, 1)
+    penalty_60 = angle_consistency_penalty(x0_60, node_mask, k_neighbors=4)
+    assert penalty_60.item() > 0.9  # cos(60deg)=0.5 is exactly the bump center
+
+    x0_180 = torch.tensor([[
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],  # 180 degrees from (1,0,0)
+    ]])
+    penalty_180 = angle_consistency_penalty(x0_180, node_mask, k_neighbors=4)
+    assert penalty_180.item() < 1e-3
+
+
+def test_angle_penalty_ignores_padded_atoms():
+    """A padded (node_mask=0) atom placed exactly at the 60-degree spot
+    must not contribute to the penalty — only real atoms should count.
+    """
+    x0 = torch.tensor([[
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [0.5, 0.8660254, 0.0],  # would score high if not masked out
+    ]])
+    node_mask = torch.tensor([[[1.0], [1.0], [1.0], [0.0]]])
+    penalty = angle_consistency_penalty(x0, node_mask, k_neighbors=4)
+    assert penalty.item() < 1e-3
+
+
+def test_loss_angle_opt_in_and_backward_compatible():
+    torch.manual_seed(0)
+    x0, h0, node_mask = toy_batch()
+
+    model_off = EquivariantMoleculeDiffusion(hidden_dim=16, n_layers=2)  # angle_loss_weight=0.0 default
+    _, parts_off = model_off.loss(x0, h0, node_mask)
+    assert "loss_angle" not in parts_off
+
+    model_on = EquivariantMoleculeDiffusion(hidden_dim=16, n_layers=2, angle_loss_weight=0.5)
+    loss_on, parts_on = model_on.loss(x0, h0, node_mask)
+    assert torch.isfinite(loss_on)
+    assert "loss_angle" in parts_on
+    assert parts_on["loss_angle"] >= 0.0
 
 
 def test_sample_shapes_and_no_nans():

@@ -1,0 +1,378 @@
+<title>PARP Candidate Gallery</title>
+<style>
+  :root {
+    --bg: #EEF1F2;
+    --surface: #FFFFFF;
+    --surface-2: #F7F8F9;
+    --text: #17212A;
+    --text-dim: #55636E;
+    --border: rgba(23, 33, 42, 0.12);
+    --accent: #B65E23;
+    --accent-ink: #7A3E14;
+    --accent-soft: rgba(182, 94, 35, 0.12);
+    --ok: #2F7A6D;
+    --ok-soft: rgba(47, 122, 109, 0.12);
+    --diagram-bg: #FDFCFA;
+    --diagram-border: rgba(23, 33, 42, 0.10);
+    --mono-shadow: 0 1px 2px rgba(23, 33, 42, 0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12181D;
+      --surface: #1B2429;
+      --surface-2: #212C32;
+      --text: #E7EDF0;
+      --text-dim: #93A2AB;
+      --border: rgba(231, 237, 240, 0.12);
+      --accent: #E08A4D;
+      --accent-ink: #F4B37F;
+      --accent-soft: rgba(224, 138, 77, 0.16);
+      --ok: #5FB3A4;
+      --ok-soft: rgba(95, 179, 164, 0.16);
+      --diagram-bg: #F4F1EC;
+      --diagram-border: rgba(0, 0, 0, 0.08);
+      --mono-shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12181D;
+    --surface: #1B2429;
+    --surface-2: #212C32;
+    --text: #E7EDF0;
+    --text-dim: #93A2AB;
+    --border: rgba(231, 237, 240, 0.12);
+    --accent: #E08A4D;
+    --accent-ink: #F4B37F;
+    --accent-soft: rgba(224, 138, 77, 0.16);
+    --ok: #5FB3A4;
+    --ok-soft: rgba(95, 179, 164, 0.16);
+    --diagram-bg: #F4F1EC;
+    --diagram-border: rgba(0, 0, 0, 0.08);
+    --mono-shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    padding-inline: 16px;
+    padding-block: 32px 64px;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  header.page { margin-bottom: 28px; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 650;
+    font-size: clamp(28px, 4vw, 38px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+
+  .lede {
+    color: var(--text-dim);
+    font-size: 15.5px;
+    line-height: 1.55;
+    max-width: 62ch;
+    margin: 0 0 22px;
+  }
+  .lede code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.92em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.05em 0.4em;
+    border-radius: 4px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat .n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .stat .l {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 22px 0 18px;
+  }
+  .filters button {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    background: var(--surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 13px;
+    cursor: pointer;
+  }
+  .filters button:hover { color: var(--text); border-color: var(--accent); }
+  .filters button.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .filters button:focus-visible, .card:focus-visible, .smi:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .diagram {
+    background: var(--diagram-bg);
+    border-bottom: 1px solid var(--diagram-border);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+  .diagram img {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+  }
+
+  .card-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-head .id {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .pill.ring { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+  .pill.acyclic { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+
+  .smi {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 9px;
+    word-break: break-all;
+    cursor: pointer;
+    box-shadow: var(--mono-shadow);
+    position: relative;
+  }
+  .smi:hover { border-color: var(--accent); }
+  .smi::after {
+    content: "copy";
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .smi:hover::after { opacity: 0.7; }
+  .smi.copied::after { content: "copied"; opacity: 1; color: var(--ok); }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-dim);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  [hidden] { display: none !important; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;650&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<div class="wrap">
+  <header class="page">
+    <p class="eyebrow">Equivariant Diffusion &middot; PARP-inhibitor candidates</p>
+    <h1>19 curated candidates, checkpoint v3&#8209;angle epoch&nbsp;400</h1>
+    <p class="lede">
+      Rejection-sampled from a PARP-conditioned E(3)-equivariant diffusion model.
+      Every structure here already passed <code>DetermineBonds</code> + <code>SanitizeMol</code>,
+      is a single connected fragment, has an all-ring size between 5 and 8 atoms, and clears an
+      MMFF/UFF strain-energy cutoff calibrated against real relaxed PARP conformers &mdash;
+      no 3- or 4-membered rings made it through.
+    </p>
+    <div class="stats">
+      <div class="stat"><span class="n">19&nbsp;/&nbsp;20</span><span class="l">target reached</span></div>
+      <div class="stat"><span class="n">9,600</span><span class="l">raw samples drawn</span></div>
+      <div class="stat"><span class="n">0.2%</span><span class="l">accept rate</span></div>
+      <div class="stat"><span class="n">300</span><span class="l">diffusion steps</span></div>
+    </div>
+  </header>
+
+  <nav class="filters" id="filters" aria-label="Filter by ring size">
+    <button data-filter="all" class="active">all (19)</button>
+    <button data-filter="5">has 5-ring</button>
+    <button data-filter="6">has 6-ring</button>
+    <button data-filter="7">has 7-ring</button>
+    <button data-filter="none">acyclic</button>
+  </nav>
+
+  <main class="grid" id="grid"></main>
+
+  <footer>
+    generate_curated.py &middot; --condition positive --ckpt conditional_checkpoint_v3_angle_epoch_400.pt &middot; seed 0
+  </footer>
+</div>
+
+<script>
+(function () {
+  var MOLS = [
+    {id:"mol_0000", heavy:17, rings:[5,5], smiles:"[H]C1=N/C(=C2\\\\C(=O)N([H])C([H])([H])C2([H])[H])C(/C([H])=C(\\\\[H])N([H])C(=O)C([H])([H])[H])=C1[H]"},
+    {id:"mol_0001", heavy:21, rings:[6,7,6], smiles:"[H]OC1=C([H])C([H])=C(F)C([H])=C([H])/C1=[N+]1\\\\C([H])([H])[C-]([H])C([H])([H])N(C2([H])C([H])=C([H])N([H])C([H])=C2[H])C1([H])[H]"},
+    {id:"mol_0002", heavy:17, rings:[6,6], smiles:"[H]C1=C(Cl)C([H])([H])C(C([H])([H])C([H])([H])C([H])([H])C([H])([H])[C+]([H])[H])=C2[N-]C(=O)N([H])C([H])=C12"},
+    {id:"mol_0003", heavy:19, rings:[5,5], smiles:"[H]O/[N+]([O-])=C1/C([H])=C([H])C([C@@]([H])(O[H])C([H])([H])/C([H])=C(\\\\[H])[C@]2([H])C(=O)N([H])C([H])([H])C2([H])[H])=C1[H]"},
+    {id:"mol_0004", heavy:16, rings:[5], smiles:"[H]C1=C([H])[C@]([H])(F)C([H])=C1/C(=N\\\\C([H])([H])C([H])([H])[C+]([H])C([H])([H])[H])N([H])[C@@]([H])([C-]([H])[H])C([H])([H])[H]"},
+    {id:"mol_0005", heavy:17, rings:[5], smiles:"[H]C([H])=C1/C(=C(/[H])C([H])([H])[N+](=O)[O-])[N+]([H])=C(C([H])([H])[N+]([H])([H])C([H])([H])C([H])([H])[S-])[C@@]1([H])[O-]"},
+    {id:"mol_0006", heavy:14, rings:[6,6,6], smiles:"[H]c1c([H])c2c3c(c1[H])C([H])([H])C([H])([H])C([H])([H])N3C(=O)N([H])C2([H])[H]"},
+    {id:"mol_0007", heavy:15, rings:[6], smiles:"[H]C1=C([H])[C+](Cl)C([H])=C([H])C1=C([H])C([H])([H])C([H])([H])/C([H])=C(\\\\[N-]C([H])([H])[H])N([H])[H]"},
+    {id:"mol_0008", heavy:23, rings:[6,7,5], smiles:"[H]C([H])=c1c([H])c([H])c([H])c(C([H])([H])C([H])([H])[H])c2c1C([H])([H])N(c1n[c-]c(C(=O)[N+]([H])([H])[H])c([H])c1[H])C2=O"},
+    {id:"mol_0009", heavy:13, rings:[6], smiles:"[H]OC(=O)c1c([H])c([H])c([H])c([O+]([H])[H])c1C([H])([H])[C-]([H])C([H])([H])[H]"},
+    {id:"mol_0010", heavy:17, rings:[6,6], smiles:"[H]O/C([H])=N/C([H])([H])[C@@]1([H])C(N([H])c2nc([H])nc([H])n2)=C([H])N([H])C([H])([H])C1([H])[H]"},
+    {id:"mol_0011", heavy:13, rings:[6], smiles:"[H]OC1=C([H])N([H])C(C([H])([H])C([H])([H])C([H])([H])C([H])([H])[C-]([H])[H])=[N+]([H])C1=O"},
+    {id:"mol_0012", heavy:16, rings:[6,5], smiles:"[H]C1=[N+](C([H])([H])[H])C([H])([H])c2c([O-])c([H])c(/C(=C(\\\\[H])C([H])([H])C([H])([H])[H])C([H])([H])[H])c([H])c21"},
+    {id:"mol_0013", heavy:19, rings:[7,6], smiles:"[H]OC(=O)c1c([H])c([H])c([H])[c-](C(=O)N([H])C2([H])C([H])=C([H])[C+]([H])C([H])=C2[H])c([H])c1[H]"},
+    {id:"mol_0014", heavy:15, rings:[6,6], smiles:"[H]/[O+]=C(\\\\[H])[C@@]1([H])C2([H])N([H])C([H])([H])C([H])([H])C([H])([H])N2C([O-])=C([H])C1(C([H])([H])[H])C([H])([H])[H]"},
+    {id:"mol_0015", heavy:20, rings:[6,5,6], smiles:"[H]C([H])=C(C(=O)N([H])[H])c1c([H])c2c3c(c([H])c([H])c([H])c3c1[H])N=C2C([H])([H])C([H])([H])C([H])([H])[H]"},
+    {id:"mol_0016", heavy:8, rings:[], smiles:"[H]/C(=C(/[H])[C@]([H])([O+]([H])[H])[C@]([H])([O-])C([H])([H])[H])C([H])([H])[H]"},
+    {id:"mol_0017", heavy:23, rings:[5,6], smiles:"[H]C1=C([H])/C(=C(/[H])C(=O)[N-]/C([H])=C(\\\\C([H])([H])[H])C([H])([H])C([H])([H])[N+](=C([H])[H])C([H])([H])[C-]([H])[H])c2c([n+]([H])c([H])n2[H])C1=O"},
+    {id:"mol_0018", heavy:11, rings:[5], smiles:"[H]O/C([O-])=C1/C(/C([H])=[O+]\\\\[H])=C([H])N([H])[C@@]1([H])C([H])([H])[H]"}
+  ];
+
+  var grid = document.getElementById("grid");
+
+  function pillsFor(m) {
+    if (m.rings.length === 0) return '<span class="pill acyclic">acyclic</span>';
+    return m.rings.map(function (r) { return '<span class="pill ring">' + r + '-ring</span>'; }).join("");
+  }
+
+  MOLS.forEach(function (m) {
+    var card = document.createElement("article");
+    card.className = "card";
+    card.dataset.rings = m.rings.length ? m.rings.join(",") : "none";
+
+    card.innerHTML =
+      '<div class="diagram"><img src="images/' + m.id + '.png" alt="2D depiction of ' + m.id + '" loading="lazy"></div>' +
+      '<div class="card-body">' +
+        '<div class="card-head"><span class="id">' + m.id + '</span><span class="pill">' + m.heavy + ' heavy atoms</span></div>' +
+        '<div class="pills">' + pillsFor(m) + '</div>' +
+        '<div class="smi" tabindex="0" role="button" aria-label="Copy SMILES for ' + m.id + '">' + m.smiles + '</div>' +
+      '</div>';
+
+    var smi = card.querySelector(".smi");
+    function copySmiles() {
+      try {
+        navigator.clipboard.writeText(m.smiles).then(function () {
+          smi.classList.add("copied");
+          setTimeout(function () { smi.classList.remove("copied"); }, 1200);
+        }).catch(function () {});
+      } catch (e) {}
+    }
+    smi.addEventListener("click", copySmiles);
+    smi.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); copySmiles(); }
+    });
+
+    grid.appendChild(card);
+  });
+
+  var filterBar = document.getElementById("filters");
+  filterBar.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-filter]");
+    if (!btn) return;
+    filterBar.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    var f = btn.dataset.filter;
+    grid.querySelectorAll(".card").forEach(function (card) {
+      if (f === "all") { card.hidden = false; return; }
+      if (f === "none") { card.hidden = card.dataset.rings !== "none"; return; }
+      var rings = card.dataset.rings.split(",");
+      card.hidden = rings.indexOf(f) === -1;
+    });
+  });
+})();
+</script>
