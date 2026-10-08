@@ -51,7 +51,8 @@ from dataset import QM9Dataset, collate_molecules
 from diffusion import EquivariantMoleculeDiffusion
 from evaluate import mol_from_coords, n_fragments
 from generate import molecules_from_output
-from utils import COND_DIM, COND_NEGATIVE, COND_NULL, COND_POSITIVE, EMA, condition_labels_to_tensor
+from utils import (ARCH_VERSION, COND_DIM, COND_NEGATIVE, COND_NULL, COND_POSITIVE, EMA, check_arch_version,
+                   condition_labels_to_tensor)
 
 
 class LabeledMoleculeList(Dataset):
@@ -215,6 +216,7 @@ def main():
     start_epoch = 0
     if args.resume:
         ckpt = torch.load(args.resume, map_location=device)
+        check_arch_version(ckpt)
         model.load_state_dict(ckpt["model_state"])
         ema.load_state_dict(ckpt["ema_state"])
         if "optimizer_state" in ckpt:
@@ -235,6 +237,7 @@ def main():
             "optimizer_state": opt.state_dict(),
             "args": vars(args) | {"cond_dim": COND_DIM},
             "epoch": global_epoch,
+            "arch_version": ARCH_VERSION,
         }
 
     def save_checkpoint(global_epoch, also_tag=False):

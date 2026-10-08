@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 from dataset import QM9Dataset, SyntheticMoleculeDataset, collate_molecules
 from diffusion import EquivariantMoleculeDiffusion
-from utils import EMA
+from utils import ARCH_VERSION, EMA
 
 
 def build_dataset(args):
@@ -93,6 +93,7 @@ def main():
         "model_state": model.state_dict(),
         "ema_state": ema.state_dict(),
         "args": vars(args),
+        "arch_version": ARCH_VERSION,
     }, args.out)
     print(f"Saved checkpoint to {args.out}")
 

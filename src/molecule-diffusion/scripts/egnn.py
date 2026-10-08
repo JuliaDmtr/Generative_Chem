@@ -12,23 +12,32 @@ Hoogeboom et al. 2022 "Equivariant Diffusion for Molecule Generation in 3D"
 Design notes
 ------------
 - Operates on fully-connected graphs per molecule (all pairs of atoms),
-  with `edge_mask` zeroing out padded atoms and self-loops.
+  with `edge_mask` zeroing out padded atoms and self-loops. The mask is
+  applied to everything that reaches a real atom: the messages AND the
+  coordinate weights (coord_mlp(0) != 0 because of its biases, so masking
+  only the messages would still let padded atoms push real ones).
 - Coordinates `x` are updated *equivariantly*: only via relative vectors
   (x_i - x_j) scaled by a learned scalar. This guarantees the update
   commutes with any rotation/reflection/translation applied to the input.
+  As in EDM, the relative vector is normalized by (||x_i - x_j|| + 1) and
+  the scalar is bounded by tanh * coords_range, so each layer's update stays
+  bounded however large the coordinates get.
+- Output is padding invariant: neither the amount of padding nor what sits
+  in the padded slots affects the real atoms (tests/test_invariances.py).
 - Node features `h` are updated *invariantly*: they only ever see
   distances (invariant scalars) and other node features, never raw
   coordinates directly.
-- We do NOT recenter the coordinates inside the model — the diffusion
-  process (diffusion.py) is responsible for keeping the center of mass
-  at zero, since that's what makes the whole pipeline translation
-  invariant (see references/approach.md).
+- The coordinate output eps_x is projected onto the zero-CoM subspace,
+  the same subspace as the noise target, so training and sampling see
+  the same prediction.
 """
 
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
+
+from utils import remove_mean_with_mask
 
 
 def mlp(sizes, act=nn.SiLU, final_act=True):
@@ -46,9 +55,11 @@ class EGNNLayer(nn.Module):
     -size molecules can be batched together via masks.
     """
 
-    def __init__(self, hidden_dim: int, edge_feat_dim: int = 0, coord_clip: float = 100.0):
+    def __init__(self, hidden_dim: int, edge_feat_dim: int = 0, coords_range: float = 15.0,
+                 norm_constant: float = 1.0):
         super().__init__()
-        self.coord_clip = coord_clip
+        self.coords_range = coords_range
+        self.norm_constant = norm_constant
 
         # phi_e: edge message from (h_i, h_j, ||x_i-x_j||^2, edge_attr) -> message
         self.edge_mlp = mlp([2 * hidden_dim + 1 + edge_feat_dim, hidden_dim, hidden_dim])
@@ -87,12 +98,12 @@ class EGNNLayer(nn.Module):
         m_ij = m_ij * edge_mask                              # zero out padded/self edges
 
         # --- equivariant coordinate update ---
-        coord_w = self.coord_mlp(m_ij)                       # (B, N, N, 1)
-        coord_w = torch.clamp(coord_w, -self.coord_clip, self.coord_clip)
-        agg = (rel * coord_w).sum(dim=2)                     # (B, N, 3), sum over j
-        # normalize by (approx) number of neighbors for scale stability
-        n_neighbors = edge_mask.sum(dim=2).clamp(min=1.0)
-        x_out = x + agg / n_neighbors
+        rel_unit = rel / (torch.sqrt(dist2 + 1e-8) + self.norm_constant)
+        coord_w = torch.tanh(self.coord_mlp(m_ij)) * self.coords_range
+        coord_w = coord_w * edge_mask                        # (B, N, N, 1), masked AFTER the MLP
+        agg = (rel_unit * coord_w).sum(dim=2)                # (B, N, 3), sum over real j
+        n_neighbors = edge_mask.sum(dim=2).clamp(min=1.0)    # real neighbors only
+        x_out = (x + agg / n_neighbors) * node_mask          # padded atoms stay at 0
 
         # --- invariant node feature update ---
         m_i = m_ij.sum(dim=2)                                 # (B, N, hidden)
@@ -146,5 +157,6 @@ class EGNN(nn.Module):
             h_i, x_i = layer(h_i, x_i, node_mask, edge_mask)
 
         eps_h = self.embed_out(h_i) * node_mask
-        eps_x = (x_i - x) * node_mask  # network predicts the *displacement* as eps_x
+        # network predicts the *displacement* as eps_x, on the zero-CoM subspace
+        eps_x = remove_mean_with_mask(x_i - x, node_mask)
         return eps_h, eps_x

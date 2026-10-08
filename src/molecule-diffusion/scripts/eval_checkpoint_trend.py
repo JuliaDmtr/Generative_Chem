@@ -44,7 +44,7 @@ from dataset import QM9Dataset, sample_molecule_sizes
 from diffusion import EquivariantMoleculeDiffusion
 from evaluate import mol_from_coords, n_fragments
 from generate import molecules_from_output
-from utils import COND_POSITIVE, condition_labels_to_tensor
+from utils import COND_POSITIVE, check_arch_version, condition_labels_to_tensor
 
 PHASE1_CHECKPOINTS = [
     (25, "../checkpoints/conditional_checkpoint_epoch_25.pt"),
@@ -90,6 +90,7 @@ def evaluate_checkpoint(ckpt_path, sizes, n_steps, device, seed):
     # results aren't even reproducible run-to-run.
     torch.manual_seed(seed)
     ckpt = torch.load(ckpt_path, map_location=device)
+    check_arch_version(ckpt)
     margs = ckpt["args"]
     model = EquivariantMoleculeDiffusion(
         hidden_dim=margs["hidden_dim"], n_layers=margs["n_layers"],

@@ -31,7 +31,7 @@ from dataset import QM9Dataset, sample_molecule_sizes
 from diffusion import EquivariantMoleculeDiffusion
 from evaluate import mol_from_coords, n_fragments
 from generate import CONDITION_NAME_TO_LABEL, molecules_from_output, write_xyz
-from utils import COND_NULL, make_condition_batch
+from utils import COND_NULL, check_arch_version, make_condition_batch
 
 
 def ring_sizes(mol):
@@ -112,6 +112,7 @@ def pick_sizes(args, n, seed_offset):
 
 def build_model(ckpt_path: str, device: torch.device, use_ema: bool):
     ckpt = torch.load(ckpt_path, map_location=device)
+    check_arch_version(ckpt)
     margs = ckpt["args"]
     cond_dim = margs.get("cond_dim", 0)
     model = EquivariantMoleculeDiffusion(

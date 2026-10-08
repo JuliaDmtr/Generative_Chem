@@ -20,7 +20,7 @@ import torch
 
 from dataset import QM9Dataset, SyntheticMoleculeDataset, sample_molecule_sizes
 from diffusion import EquivariantMoleculeDiffusion
-from utils import COND_NEGATIVE, COND_NULL, COND_POSITIVE, IDX2ATOM, make_condition_batch
+from utils import COND_NEGATIVE, COND_NULL, COND_POSITIVE, IDX2ATOM, check_arch_version, make_condition_batch
 
 CONDITION_NAME_TO_LABEL = {"negative": COND_NEGATIVE, "positive": COND_POSITIVE, "null": COND_NULL}
 
@@ -74,6 +74,7 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     ckpt = torch.load(args.ckpt, map_location=device)
+    check_arch_version(ckpt)
     margs = ckpt["args"]
     cond_dim = margs.get("cond_dim", 0)  # 0 for older unconditional checkpoints
     model = EquivariantMoleculeDiffusion(

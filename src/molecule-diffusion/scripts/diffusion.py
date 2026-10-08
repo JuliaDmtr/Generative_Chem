@@ -148,14 +148,16 @@ class EquivariantMoleculeDiffusion(nn.Module):
         B = x0.shape[0]
         device = x0.device
         x0 = remove_mean_with_mask(x0, node_mask)
+        # EDM feature scaling: h0 is shrunk *before* diffusion, so atom types
+        # have a lower signal-to-noise ratio than positions at every t and are
+        # resolved later in sampling (see utils.H_SCALE).
+        h0 = h0 * H_SCALE
 
         t = torch.rand(B, device=device)  # continuous t in [0, 1), one per molecule
         x_t, h_t, eps_x, eps_h = self.q_sample(x0, h0, t, node_mask)
 
         edge_mask = build_edge_mask(node_mask)
-        # h_t is scaled down only for what the network sees (see utils.H_SCALE) —
-        # eps_h_pred is still compared against the unscaled eps_h target below.
-        eps_h_pred, eps_x_pred = self.net(h_t * H_SCALE, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
+        eps_h_pred, eps_x_pred = self.net(h_t, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
 
 
         n_real = node_mask.sum(dim=(1, 2)).clamp(min=1.0)  # atoms per molecule
@@ -204,7 +206,8 @@ class EquivariantMoleculeDiffusion(nn.Module):
               (classifier-free-guidance-style). With guidance_scale == 1.0
               (default) or null_cond=None, this reduces to plain
               conditional sampling using `cond` directly.
-        Returns (x0_pred, h0_pred): coordinates and one-hot-ish atom types.
+        Returns (x0_pred, h0_pred): coordinates and one-hot-ish atom types,
+        the latter at data scale H_SCALE (argmax is unaffected).
         """
         n_steps = n_steps or self.timesteps
         device = device or node_mask.device
@@ -223,15 +226,13 @@ class EquivariantMoleculeDiffusion(nn.Module):
             ab_t = cosine_alpha_bar(t).view(B, 1, 1)
             ab_next = cosine_alpha_bar(t_next).view(B, 1, 1)
 
-            # h_t is scaled down only for what the network sees (see utils.H_SCALE);
-            # the state h_t itself (used below for h0_pred/next-step update) stays unscaled.
             if use_guidance:
-                eps_h_cond, eps_x_cond = self.net(h_t * H_SCALE, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
-                eps_h_null, eps_x_null = self.net(h_t * H_SCALE, x_t, t.view(B, 1), node_mask, edge_mask, cond=null_cond)
+                eps_h_cond, eps_x_cond = self.net(h_t, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
+                eps_h_null, eps_x_null = self.net(h_t, x_t, t.view(B, 1), node_mask, edge_mask, cond=null_cond)
                 eps_h_pred = eps_h_null + guidance_scale * (eps_h_cond - eps_h_null)
                 eps_x_pred = eps_x_null + guidance_scale * (eps_x_cond - eps_x_null)
             else:
-                eps_h_pred, eps_x_pred = self.net(h_t * H_SCALE, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
+                eps_h_pred, eps_x_pred = self.net(h_t, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
             eps_x_pred = remove_mean_with_mask(eps_x_pred, node_mask)
 
             # predict x0 from current noisy sample + predicted noise

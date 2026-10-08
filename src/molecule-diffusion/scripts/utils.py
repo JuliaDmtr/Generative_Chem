@@ -18,17 +18,30 @@ ATOM2IDX = {a: i for i, a in enumerate(ATOM_VOCAB)}
 IDX2ATOM = {i: a for a, i in ATOM2IDX.items()}
 NUM_ATOM_TYPES = len(ATOM_VOCAB)
 
-# Relative input scaling between the coordinate (x) and atom-type (h)
-# channels, applied ONLY to what's fed into the denoiser network — not to
-# the diffused state/targets themselves (see diffusion.py: net_h_input).
-# From Hoogeboom et al. 2022 (EDM), "Scaling Features": feeding h into the
-# network at a smaller scale than x biases the denoising process to
-# resolve rough positions first and decide atom types afterward. Their
-# controlled ablation (paper Table 10) shows this alone takes molecule
-# stability from 46.9% to 82.0% on QM9 (atom stability 95.7% -> 98.7%),
-# with no other change. Scaling x itself would need a log-likelihood
-# correction (continuous data); scaling h does not (categorical/one-hot).
+# Scale of the one-hot atom types in the DIFFUSED DATA (EDM, Hoogeboom et
+# al. 2022, "Scaling Features"; their norm_values h = 4, i.e. h0 / 4).
+# Shrinking h0 before diffusion lowers the atom-type signal-to-noise ratio
+# at every t, so positions are resolved first and atom types afterward.
+# Their ablation (Table 10): molecule stability 46.9% -> 82.0% on QM9.
+# It must be applied to h0 itself (diffusion.py: loss), NOT to the network
+# input: an input-only scale is absorbed by the first linear layer and has
+# no effect (an earlier version of this code made exactly that mistake).
 H_SCALE = 0.25
+
+# Bumped whenever a change makes old checkpoints compute something
+# different. Loaders refuse checkpoints with another version.
+# 2: padding-invariant EGNN (masked coord weights, EDM coordinate
+#    normalization), zero-CoM eps_x, H_SCALE applied in data space.
+ARCH_VERSION = 2
+
+
+def check_arch_version(ckpt: dict) -> None:
+    found = ckpt.get("arch_version", 1)
+    if found != ARCH_VERSION:
+        raise ValueError(
+            f"Checkpoint has arch_version={found}, code expects {ARCH_VERSION}; "
+            "it was trained with a different architecture and would give wrong results. Retrain."
+        )
 
 
 # Conditioning labels for the PARP-conditional model (see
