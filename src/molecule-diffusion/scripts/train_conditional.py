@@ -274,10 +274,11 @@ def main():
             parp_ds, parp_sizes, chembl_ds, filtered_indices, filtered_sizes,
             size_to_indices, rng, args.size_tolerance, n_representative,
         )
-        max_atoms_batch = max(item["n_nodes"] for item in items)
+        # Each batch is padded only to its own largest molecule: the model is
+        # padding invariant, and compute grows with N^2.
         loader = DataLoader(
             LabeledMoleculeList(items), batch_size=args.batch_size, shuffle=True,
-            collate_fn=lambda batch: collate_with_cond(batch, max_atoms=max_atoms_batch),
+            collate_fn=collate_with_cond,
         )
 
         running = {"loss": 0.0, "loss_x": 0.0, "loss_h": 0.0, "loss_angle": 0.0, "n": 0}

@@ -11,7 +11,6 @@ Usage (real data, from a preprocessed QM9 .npz — see dataset.py):
 from __future__ import annotations
 
 import argparse
-import functools
 import time
 
 import torch
@@ -53,9 +52,9 @@ def main():
     device = torch.device(args.device)
     print("Device:", device)
     dataset = build_dataset(args)
-    max_atoms = max(dataset[i]["n_nodes"] for i in range(len(dataset)))
-    collate = functools.partial(collate_molecules, max_atoms=max_atoms)
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate)
+    # Each batch is padded only to its own largest molecule (the model is
+    # padding invariant, and compute grows with N^2).
+    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_molecules)
 
     model = EquivariantMoleculeDiffusion(
         hidden_dim=args.hidden_dim, n_layers=args.n_layers, timesteps=args.timesteps,

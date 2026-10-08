@@ -116,9 +116,10 @@ conditional model trained by `scripts/train_conditional.py`.
   samples from it (with optional CFG-style extrapolation against the
   null class). See `scripts/prepare_parp_conformers.py` for building the
   conditioning dataset.
-- **DDIM-style sampler, not the paper's exact ancestral sampler.** Faster
-  and works well in practice for this SDE family; swap in full ancestral
-  DDPM sampling in `diffusion.py: sample` if you need to match the paper
+- **DDIM-style sampler, not the paper's exact ancestral sampler.** Faster;
+  it has not yet been compared against ancestral sampling on this model
+  (see the reference comparison below). Swap in full ancestral DDPM
+  sampling in `diffusion.py: sample` if you need to match the paper
   exactly.
 - **No explicit bond-order graph.** Bonds aren't modeled directly; this
   follows the original EDM (bonds are inferred post-hoc, e.g. from
@@ -136,6 +137,45 @@ conditional model trained by `scripts/train_conditional.py`.
   generated samples) — both reported in the original paper — still
   aren't implemented; add a canonical-SMILES set comparison against the
   training data if you need them.
+
+## Line-by-line comparison with the EDM reference code
+
+Checked on 2026-10-08 against `ehoogeboom/e3_diffusion_for_molecules`
+(`egnn/egnn_new.py`, `egnn/models.py`, `equivariant_diffusion/en_diffusion.py`,
+and the defaults/commands in `main_qm9.py` and its README). Every
+difference is listed; "Status" says whether it is intentional or still
+open. Anything not listed matches the reference.
+
+**Fixed on 2026-10-08 (were bugs, all covered by `tests/test_invariances.py`):**
+
+| Item | EDM | Before the fix |
+|---|---|---|
+| Masking of coordinate updates | `trans * edge_mask` after `coord_mlp` | only messages masked; `coord_mlp(0) != 0` leaked padded atoms |
+| Relative vector | `(x_i - x_j) / (‖x_i - x_j‖ + 1)` (`norm_constant=1`) | raw `x_i - x_j` |
+| Coordinate weight bound | `tanh(·) * 15` (`--tanh True`) | clamp ±100 (never active) |
+| Padded coordinates | `coord * node_mask` after each update | not re-masked; ghost atoms drifted |
+| CoM of the coordinate output | `remove_mean_with_mask(vel)` in the dynamics, train and sample | removed only in `sample()` |
+| Atom-type scaling | `h / 4` in the data (`--normalize_factors [1,4,…]`) | `h_t * 0.25` at the network input only — a no-op |
+
+**Intentional differences (kept):**
+
+| Item | EDM | Here | Why |
+|---|---|---|---|
+| Conditioning | per-node context vector (property values) | 3-class one-hot (negative/positive/null), optional CFG-style guidance | task is class conditioning on PARP vs. ChEMBL |
+| Charge channel | categorical + integer charge (`[1,4,10]`) | atom type only | charges not in our data |
+| Coordinate-update aggregation | `sum / normalization_factor` (= 1, i.e. plain sum) | mean over real neighbors (`/ (n_real − 1)`) | EGNN paper's `1/(M−1)`; padding invariant, keeps update size independent of molecule size |
+| Loss normalization (l2) | divides by `(3 + nf) * N_padded` | divides by `n_real` per molecule | EDM's version depends on padding; ours does not |
+
+**Open differences (unverified effect — candidates for later ablation):**
+
+| Item | EDM | Here |
+|---|---|---|
+| Input of `coord_mlp` | fresh MLP on `[h_i, h_j, edge_attr]`, last layer without bias | shared message `m_ij` |
+| Edge features | current **and initial** squared distances (`edge_feat_nf=2`) | current squared distance only |
+| Noise schedule | `polynomial_2`, precision 1e-5, discrete T=1000 | cosine, continuous t, `alpha_bar` clamped at 1e-5 |
+| Sampler | ancestral p(z_s \| z_t), all T steps | DDIM-style with σ = 0.2·sqrt(1−ᾱ_next); "works well" was never compared against ancestral |
+| EMA decay | 0.9999 | 0.999 (`train_conditional.py` default) |
+| Size (GEOM-Drugs run) | nf 256, 4 layers | nf 256, 6 layers (last run) |
 
 ## Managing long training runs
 
