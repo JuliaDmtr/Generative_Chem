@@ -1,0 +1,19 @@
+#!/bin/sh
+# Runs the molecule-diffusion test suite (about 1 s) when a commit touches that
+# project. Enable once per clone with: git config core.hooksPath .githooks
+# Bypass in an emergency with: git commit --no-verify
+
+if ! git diff --cached --name-only | grep -q '^src/molecule-diffusion/'; then
+    exit 0
+fi
+
+ROOT=$(git rev-parse --show-toplevel)
+PY="$ROOT/.venv/bin/python"
+[ -x "$PY" ] || PY=python3
+
+echo "pre-commit: running molecule-diffusion tests..."
+cd "$ROOT/src/molecule-diffusion" || exit 1
+if ! "$PY" -m pytest tests -q -p no:cacheprovider; then
+    echo "pre-commit: tests failed; commit aborted." >&2
+    exit 1
+fi

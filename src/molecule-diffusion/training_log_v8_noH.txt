@@ -1,0 +1,50 @@
+Device: mps
+PARP conformers: 11,552 (sizes 5-63)
+ChEMBL pool: 19,882 total, 19,882 within --max-atoms=80 (sizes 3-72)
+epoch    0 | loss 2.8084 (x 1.9471, h 0.8614) | lr 1.00e-04 | 392.4s
+epoch    5 | loss 1.8391 (x 1.6996, h 0.1395) | lr 9.92e-05 | 334.6s
+epoch   10 | loss 1.7049 (x 1.5912, h 0.1137) | lr 9.73e-05 | 330.6s
+   [diagnostics] validity (single-molecule) — null: 48.4% (3.1%), PARP-conditioned: 53.1% (12.5%)
+   [checkpoint] new best PARP-conditioned single-molecule rate (12.5%) at epoch 10 — saved to checkpoints/v8_noH_best.pt
+   [checkpoint] saved epoch 10 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_10.pt)
+epoch   15 | loss 1.6340 (x 1.5303, h 0.1037) | lr 9.44e-05 | 329.8s
+epoch   20 | loss 1.5881 (x 1.4948, h 0.0933) | lr 9.06e-05 | 332.0s
+   [diagnostics] validity (single-molecule) — null: 43.8% (14.1%), PARP-conditioned: 62.5% (29.7%)
+   [checkpoint] new best PARP-conditioned single-molecule rate (29.7%) at epoch 20 — saved to checkpoints/v8_noH_best.pt
+   [checkpoint] saved epoch 20 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_20.pt)
+epoch   25 | loss 1.5703 (x 1.4809, h 0.0894) | lr 8.58e-05 | 331.3s
+epoch   30 | loss 1.5470 (x 1.4624, h 0.0846) | lr 8.03e-05 | 331.6s
+   [diagnostics] validity (single-molecule) — null: 60.9% (32.8%), PARP-conditioned: 60.9% (25.0%)
+   [checkpoint] saved epoch 30 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_30.pt)
+epoch   35 | loss 1.5292 (x 1.4494, h 0.0798) | lr 7.42e-05 | 331.7s
+epoch   40 | loss 1.5109 (x 1.4342, h 0.0766) | lr 6.76e-05 | 331.8s
+   [diagnostics] validity (single-molecule) — null: 59.4% (25.0%), PARP-conditioned: 62.5% (26.6%)
+   [checkpoint] saved epoch 40 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_40.pt)
+epoch   45 | loss 1.4985 (x 1.4272, h 0.0712) | lr 6.06e-05 | 336.4s
+epoch   50 | loss 1.4922 (x 1.4221, h 0.0701) | lr 5.36e-05 | 332.7s
+   [diagnostics] validity (single-molecule) — null: 50.0% (21.9%), PARP-conditioned: 60.9% (34.4%)
+   [checkpoint] new best PARP-conditioned single-molecule rate (34.4%) at epoch 50 — saved to checkpoints/v8_noH_best.pt
+   [checkpoint] saved epoch 50 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_50.pt)
+epoch   55 | loss 1.4846 (x 1.4165, h 0.0681) | lr 4.66e-05 | 331.0s
+epoch   60 | loss 1.4686 (x 1.4022, h 0.0664) | lr 3.98e-05 | 331.7s
+   [diagnostics] validity (single-molecule) — null: 51.6% (20.3%), PARP-conditioned: 67.2% (35.9%)
+   [checkpoint] new best PARP-conditioned single-molecule rate (35.9%) at epoch 60 — saved to checkpoints/v8_noH_best.pt
+   [checkpoint] saved epoch 60 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_60.pt)
+epoch   65 | loss 1.4629 (x 1.4004, h 0.0625) | lr 3.33e-05 | 329.1s
+epoch   70 | loss 1.4595 (x 1.3954, h 0.0640) | lr 2.74e-05 | 333.0s
+   [diagnostics] validity (single-molecule) — null: 67.2% (34.4%), PARP-conditioned: 62.5% (35.9%)
+   [checkpoint] saved epoch 70 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_70.pt)
+epoch   75 | loss 1.4489 (x 1.3883, h 0.0606) | lr 2.22e-05 | 331.3s
+epoch   80 | loss 1.4522 (x 1.3910, h 0.0612) | lr 1.78e-05 | 331.4s
+   [diagnostics] validity (single-molecule) — null: 62.5% (37.5%), PARP-conditioned: 73.4% (50.0%)
+   [checkpoint] new best PARP-conditioned single-molecule rate (50.0%) at epoch 80 — saved to checkpoints/v8_noH_best.pt
+   [checkpoint] saved epoch 80 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_80.pt)
+epoch   85 | loss 1.4453 (x 1.3853, h 0.0600) | lr 1.43e-05 | 333.9s
+epoch   90 | loss 1.4417 (x 1.3825, h 0.0592) | lr 1.18e-05 | 331.8s
+   [diagnostics] validity (single-molecule) — null: 54.7% (40.6%), PARP-conditioned: 67.2% (39.1%)
+   [checkpoint] saved epoch 90 to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_90.pt)
+epoch   95 | loss 1.4435 (x 1.3850, h 0.0585) | lr 1.04e-05 | 331.5s
+epoch   99 | loss 1.4369 (x 1.3783, h 0.0587) | lr 1.00e-05 | 333.2s
+   [diagnostics] validity (single-molecule) — null: 57.8% (45.3%), PARP-conditioned: 62.5% (37.5%)
+Saved final checkpoint to checkpoints/v8_noH.pt (and checkpoints/v8_noH_epoch_99.pt)
+Best PARP-conditioned single-molecule rate during this run: 50.0%, saved separately to checkpoints/v8_noH_best.pt (NOT necessarily the same as the final/latest checkpoint above — validity is not monotonic across epochs, so prefer this one for generation unless you have a specific reason to use the final epoch).

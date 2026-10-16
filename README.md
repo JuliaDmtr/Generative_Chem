@@ -26,6 +26,7 @@ The pipeline consists of:
 
 ## Repository structure
 
+- [src/molecule-diffusion/CASE_STUDY.md](src/molecule-diffusion/CASE_STUDY.md) — a written debugging case study: diagnosing why generated molecules had unrealistic 3-membered rings, the fixes that worked, and one that didn't (reported honestly).
 - [src/molecule-diffusion/SKILL.md](src/molecule-diffusion/SKILL.md) — full walkthrough: setup, quick start, conditional PARP training, and guidance on managing long training runs.
 - [src/molecule-diffusion/references/approach.md](src/molecule-diffusion/references/approach.md) — the method explained: equivariance, diffusion schedule, data format, and known simplifications vs. the original EDM paper.
 - `src/molecule-diffusion/scripts/` — `egnn.py` (denoiser backbone), `diffusion.py` (forward/reverse process), `dataset.py`, `train.py`/`train_conditional.py`, `generate.py`, `evaluate.py`, `prepare_chembl.py`/`prepare_parp_conformers.py` (SMILES → 3D `.npz` conversion), `eval_checkpoint_trend.py` (epoch-vs-validity trend across checkpoints).
