@@ -90,6 +90,29 @@ def angle_consistency_penalty(x0_pred: torch.Tensor, node_mask: torch.Tensor,
     return penalty.sum(dim=(1, 2, 3)) / n_real
 
 
+def reverse_step(z_t, eps_pred, ab_t, ab_s, noise, sampler: str = "ddim", ddim_noise: float = 0.2):
+    """One reverse step z_t -> z_s (s < t) from the predicted noise eps_pred.
+
+    sampler="ancestral": draw from the DDPM posterior q(z_s | z_t, x0 = x0_pred)
+        (Ho et al. 2020, eq. 7) — what EDM uses, normally with all T steps.
+    sampler="ddim": z_s = sqrt(ab_s) x0_pred + sqrt(1 - ab_s - sigma^2) eps_pred + sigma noise
+        with sigma = ddim_noise * sqrt(1 - ab_s) (Song et al. 2021). ddim_noise=0 is
+        deterministic DDIM; 0.2 is this project's original setting.
+    At ab_s = 1 (the final step) both return x0_pred with no noise.
+    """
+    x0_pred = (z_t - (1 - ab_t).sqrt() * eps_pred) / ab_t.sqrt().clamp(min=1e-8)
+    if sampler == "ancestral":
+        a = ab_t / ab_s
+        b = 1 - a
+        mean = ab_s.sqrt() * b / (1 - ab_t) * x0_pred + a.sqrt() * (1 - ab_s) / (1 - ab_t) * z_t
+        std = (b * (1 - ab_s) / (1 - ab_t)).clamp(min=0).sqrt()
+        return mean + std * noise
+    if sampler == "ddim":
+        sigma = ddim_noise * (1 - ab_s).sqrt()
+        return ab_s.sqrt() * x0_pred + (1 - ab_s - sigma ** 2).clamp(min=0).sqrt() * eps_pred + sigma * noise
+    raise ValueError(f"Unknown sampler {sampler!r}; use 'ancestral' or 'ddim'.")
+
+
 class EquivariantMoleculeDiffusion(nn.Module):
     def __init__(self, num_atom_types: int = NUM_ATOM_TYPES, hidden_dim: int = 128,
                  n_layers: int = 4, timesteps: int = 1000, h_loss_weight: float = 1.0,
@@ -190,8 +213,9 @@ class EquivariantMoleculeDiffusion(nn.Module):
     # ---------------------------------------------------------------- #
     @torch.no_grad()
     def sample(self, node_mask, n_steps: int | None = None, device=None,
-               cond=None, null_cond=None, guidance_scale: float = 1.0):
-        """Generate new molecules by ancestral sampling from pure noise.
+               cond=None, null_cond=None, guidance_scale: float = 1.0,
+               sampler: str = "ddim", ddim_noise: float = 0.2):
+        """Generate new molecules from pure noise.
 
         node_mask: (B, N, 1) — determines how many atoms each generated
                    molecule has (you choose molecule sizes up front, e.g.
@@ -206,6 +230,8 @@ class EquivariantMoleculeDiffusion(nn.Module):
               (classifier-free-guidance-style). With guidance_scale == 1.0
               (default) or null_cond=None, this reduces to plain
               conditional sampling using `cond` directly.
+        sampler, ddim_noise: the reverse step, see reverse_step(). EDM uses
+              sampler="ancestral" with n_steps = timesteps (1000).
         Returns (x0_pred, h0_pred): coordinates and one-hot-ish atom types,
         the latter at data scale H_SCALE (argmax is unaffected).
         """
@@ -235,19 +261,10 @@ class EquivariantMoleculeDiffusion(nn.Module):
                 eps_h_pred, eps_x_pred = self.net(h_t, x_t, t.view(B, 1), node_mask, edge_mask, cond=cond)
             eps_x_pred = remove_mean_with_mask(eps_x_pred, node_mask)
 
-            # predict x0 from current noisy sample + predicted noise
-            x0_pred = (x_t - (1 - ab_t).sqrt() * eps_x_pred) / ab_t.sqrt().clamp(min=1e-8)
-            h0_pred = (h_t - (1 - ab_t).sqrt() * eps_h_pred) / ab_t.sqrt().clamp(min=1e-8)
-            x0_pred = remove_mean_with_mask(x0_pred, node_mask)
-
-            # DDIM-style deterministic-ish step toward t_next (with a small
-            # amount of injected noise, except on the very last step)
             noise_x = remove_mean_with_mask(torch.randn_like(x_t), node_mask)
             noise_h = torch.randn_like(h_t) * node_mask
-            sigma = (1 - ab_next).sqrt() * 0.2 if i < n_steps - 1 else 0.0
-
-            x_t = ab_next.sqrt() * x0_pred + (1 - ab_next - sigma ** 2).clamp(min=0).sqrt() * eps_x_pred + sigma * noise_x
-            h_t = ab_next.sqrt() * h0_pred + (1 - ab_next - sigma ** 2).clamp(min=0).sqrt() * eps_h_pred + sigma * noise_h
+            x_t = reverse_step(x_t, eps_x_pred, ab_t, ab_next, noise_x, sampler, ddim_noise)
+            h_t = reverse_step(h_t, eps_h_pred, ab_t, ab_next, noise_h, sampler, ddim_noise)
             x_t = remove_mean_with_mask(x_t, node_mask)
             h_t = h_t * node_mask
 
