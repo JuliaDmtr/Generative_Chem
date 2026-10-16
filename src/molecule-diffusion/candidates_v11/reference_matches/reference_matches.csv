@@ -1,0 +1,11 @@
+reference,reference_targets,reference_smiles,best_candidate_smiles,tanimoto_similarity
+niraparib,PARP1 and PARP2,NC(=O)c1cccc2cn(-c3ccc([C@@H]4CCCNC4)cc3)nc12,NC(=O)c1cccc2[nH]c(C3CCN(O)CC3)nc12,0.375
+OUL35,PARP10,NC(=O)c1ccc(Oc2ccc(C(N)=O)cc2)cc1,COc1ccc(Cc2ccc(C(N)=O)cc2)cc1F,0.359
+olaparib,PARP1 and PARP2,O=C(c1cc(Cc2n[nH]c(=O)c3ccccc23)ccc1F)N1CCN(C(=O)C2CC2)CC1,COC[C@@]1(C)/C(=C2\NN/C(=N/C3CCCC3)N2)Cc2ccc(Cc3n[nH]c(=O)c4ccccc34)cc21,0.344
+(S)-XY-05,PARP7,C[C@@H](C(=O)N1CCN(c2ncc(C(F)(F)F)cn2)CC1)n1cc2cccc(C(N)=O)c2n1,NC(=O)c1cccc2[nH]c(-c3cc(C(F)(F)F)co3)nc12,0.316
+saruparib,PARP1,CCc1cc2ncc(CN3CCN(c4ccc(C(=O)NC)nc4)CC3)cc2[nH]c1=O,COC1=C2O[C@H](F)CN2C[C@@H](N2CC[C@@H](NC(=O)c3ccc(F)cn3)C2)C1,0.237
+rucaparib,PARP1 PARP2 PARP3,CNCc1ccc(-c2[nH]c3cc(F)cc4c3c2CCNC4=O)cc1,CNCc1ccc(-c2nc3cccc4c3n2C=CC4)cc1,0.236
+RBN012759,PARP14,O=c1[nH]c(CS[C@H]2CC[C@H](O)CC2)nc2cc(OCC3CC3)cc(F)c12,CC(=N)c1nc2cc(OC3CCCCC3)ccc2[nH]c1=O,0.234
+ITK7,PARP11,CC#Cc1ccc2c(=O)[nH]c(CSc3ncccn3)nc2c1C,N[C@H](F)c1ccc2nc3c(=O)[nH]c(=O)c4cccnc4n3c2c1,0.211
+talazoparib,PARP1 PARP2 PARP5a,Cn1ncnc1[C@H]1c2n[nH]c(=O)c3cc(F)cc(c23)N[C@@H]1c1ccc(F)cc1,O=c1[nH]nc(N2CCO[C@@H](N3CCCCC3)C2)c2ccccc12,0.2
+G007-LK,PARP5a PARP5b,CS(=O)(=O)c1ccc(-c2nnc(/C=C/c3nnc(-c4ccc(C#N)cc4)o3)n2-c2ccccc2Cl)nc1,CC1(C)C=CC(C2CCN(C(=O)N3CCN(c4ccccc4Cl)CC3)CC2)=NC1=O,0.181
