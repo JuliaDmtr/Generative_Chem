@@ -27,6 +27,7 @@ import csv
 import sys
 
 import numpy as np
+from rdkit import Chem
 
 from prepare_chembl import smiles_to_3d
 from utils import ATOM2IDX
@@ -84,7 +85,13 @@ def convert(smiles_list: list[str], n_conformers: int = 5, seed: int = 0,
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--csv", default="../../../Datasets/PARP_inhibitors_July26/merged_parp_inhibitors.csv",
-                    help="CSV with a 'smiles' column (as produced for the curated PARP inhibitor set).")
+                    help="CSV with a SMILES column (see --smiles-column).")
+    p.add_argument("--smiles-column", default="smiles",
+                    help="Name of the SMILES column in --csv (e.g. 'std_smiles' for "
+                         "Datasets/PARP_Inhibitors_ChEMBL/parp_molecules_curated.csv).")
+    p.add_argument("--dedup", action="store_true",
+                    help="Keep only the first occurrence of each canonical SMILES (the "
+                         "ChEMBL-mined CSV lists a molecule once per target gene).")
     p.add_argument("--n-conformers", type=int, default=5,
                     help="Number of ETKDG conformers to embed per SMILES.")
     p.add_argument("--max-atoms", type=int, default=None,
@@ -95,7 +102,18 @@ def main():
 
     with open(args.csv, newline="") as f:
         reader = csv.DictReader(f)
-        smiles_list = [row["smiles"] for row in reader if row.get("smiles")]
+        smiles_list = [row[args.smiles_column] for row in reader if row.get(args.smiles_column)]
+
+    if args.dedup:
+        seen, deduped = set(), []
+        for smi in smiles_list:
+            mol = Chem.MolFromSmiles(smi)
+            key = Chem.MolToSmiles(mol) if mol else smi
+            if key not in seen:
+                seen.add(key)
+                deduped.append(smi)
+        print(f"Deduplicated {len(smiles_list):,} -> {len(deduped):,} distinct molecules")
+        smiles_list = deduped
 
     print(f"Loaded {len(smiles_list):,} SMILES from {args.csv}")
     positions, atom_types, n_kept = convert(
