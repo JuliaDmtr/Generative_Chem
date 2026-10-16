@@ -96,8 +96,10 @@ So the measurement stack was rebuilt and calibrated against real molecules:
 - [src/molecule-diffusion/references/approach.md](src/molecule-diffusion/references/approach.md) —
   the method, and a line-by-line comparison against the reference EDM
   implementation with every difference marked intentional or open.
-- [src/molecule-diffusion/SKILL.md](src/molecule-diffusion/SKILL.md) — setup,
-  quick start, and guidance for long training runs.
+- [src/molecule-diffusion/SKILL.md](src/molecule-diffusion/SKILL.md) — the
+  skill definition the project was scaffolded from, kept for provenance. It
+  describes the original with-hydrogen prototype and is deliberately not kept
+  in sync; this README is the current walkthrough.
 - [CLAUDE.md](CLAUDE.md) — the rules this project works under, written in
   response to the bugs in the case study.
 

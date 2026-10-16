@@ -5,6 +5,17 @@ description: Build, train, and sample from an E(3)-equivariant diffusion model (
 
 # Equivariant Molecule Diffusion
 
+> **This file is the scaffold the project started from, not a description of
+> what it became.** It is the skill definition used to generate the initial
+> EDM implementation, kept for provenance, and it has not been updated since
+> that first commit. It documents 9 of the 27 scripts and 5 of the 15 test
+> files that exist now, and its commands train the superseded with-hydrogen
+> model on an older 294-molecule PARP set.
+>
+> For the current pipeline, results and reproduction commands, see
+> [the repository README](../../README.md). For how the project changed and
+> why, see [CASE_STUDY.md](CASE_STUDY.md).
+
 A complete, from-scratch implementation of an **E(3)-equivariant
 diffusion model** for generating new 3D molecules, following the EDM
 approach (Hoogeboom et al. 2022, ICML) that later SOTA methods (GeoLDM,
