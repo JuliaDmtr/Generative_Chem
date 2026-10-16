@@ -184,6 +184,16 @@ model, with `git config core.hooksPath .githooks`.
 - No binding, docking or activity model of any kind. Similarity to known
   inhibitors is structural resemblance only.
 
+## Licence and data
+
+Code is MIT licensed — see [LICENSE](LICENSE).
+
+No chemical data is redistributed here. The training sets are built locally from
+[ChEMBL](https://www.ebi.ac.uk/chembl/), which is released under
+[CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); the scripts in
+`scripts/` fetch and prepare it, and the resulting `.npz` files are gitignored.
+Anyone redistributing data derived from ChEMBL should attribute it accordingly.
+
 ## Citation
 
 Follows the EDM approach: Hoogeboom, Satorras, Vignac & Welling, *"Equivariant
