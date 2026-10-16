@@ -28,6 +28,18 @@ def test_requested_lr_overrides_restored_state():
     assert resumed.param_groups[0]["lr"] == pytest.approx(1e-4)
 
 
+# These two tests exercise the scheduler's arithmetic only: they never call
+# optimizer.step(), because nothing is being trained. torch cannot tell that
+# apart from the real mistake of stepping the scheduler first, so it emits
+# "Detected call of lr_scheduler.step() before optimizer.step()". The warning
+# is expected here and is declared rather than suppressed globally; the
+# assertions read the LR before each step, so the value torch warns about
+# skipping is never the one under test.
+EXPECTED_STEP_ORDER_WARNING = pytest.mark.filterwarnings(
+    "ignore:Detected call of:UserWarning")
+
+
+@EXPECTED_STEP_ORDER_WARNING
 def test_scheduler_built_afterwards_uses_the_requested_lr():
     opt = make_optimizer(1e-3)
     opt.load_state_dict(make_optimizer(1e-5).state_dict())
@@ -42,6 +54,7 @@ def test_scheduler_built_afterwards_uses_the_requested_lr():
     assert all(lr == pytest.approx(1e-4) for lr in lrs), f"LR should stay constant, got {lrs}"
 
 
+@EXPECTED_STEP_ORDER_WARNING
 def test_annealing_still_works_when_min_is_lower():
     opt = make_optimizer(1e-4)
     reset_optimizer_lr(opt, 1e-4)
