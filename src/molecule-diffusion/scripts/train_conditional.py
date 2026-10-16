@@ -40,6 +40,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import time
 
@@ -51,6 +52,7 @@ from dataset import QM9Dataset, collate_molecules
 from diffusion import EquivariantMoleculeDiffusion
 from evaluate import mol_from_coords, n_fragments
 from generate import molecules_from_output
+from heavy_atom_eval import heavy_atom_checks
 from utils import (ARCH_VERSION, COND_DIM, COND_NEGATIVE, COND_NULL, COND_POSITIVE, EMA, check_arch_version,
                    condition_labels_to_tensor)
 
@@ -118,15 +120,74 @@ def build_epoch_items(parp_ds, parp_sizes, chembl_ds, filtered_indices, filtered
 
 
 @torch.no_grad()
-def run_validity_diagnostics(model, condition_label, sizes_pool, n_samples, n_steps, device, rng):
+def reset_optimizer_lr(optimizer, lr: float) -> None:
+    """Force every param group to `lr`.
+
+    Call this after loading a checkpoint's optimizer state and BEFORE building
+    the LR scheduler: schedulers capture base_lrs from the optimizer at
+    construction, so a restored LR would silently override --lr for the whole
+    resumed run (see tests/test_resume_lr.py).
+    """
+    for group in optimizer.param_groups:
+        group["lr"] = lr
+
+
+def selection_margin(rate_a, rate_b, n_samples):
+    """95% noise floor on the difference between two diagnostic rates.
+
+    Both are binomial rates over the same number of sampled molecules, so the
+    difference has standard error sqrt(p(1-p)/n + q(1-q)/n).
+    """
+    n = max(int(n_samples), 1)
+    var = (max(rate_a, 0.0) * (1.0 - max(rate_a, 0.0)) +
+           max(rate_b, 0.0) * (1.0 - max(rate_b, 0.0))) / n
+    return 1.96 * math.sqrt(max(var, 0.0))
+
+
+def should_replace_best(best_rate, candidate_rate, n_samples):
+    """Should this epoch replace the checkpoint kept as "best"?
+
+    Keep the LATER checkpoint unless the diagnostic says it is significantly
+    worse than the best rate seen so far. Selecting on the raw rate picks
+    noise: at the default 64 molecules its 95% interval is about +/-8 points,
+    while real differences between late epochs are 1-2 points. In v11 epochs
+    430, 450 and 490 all scored exactly 89.1% and a strict `>` kept the
+    earliest, which a 256-sample evaluation then showed to be the worst of the
+    three (66.4% usable molecules against 68.0% for the final epoch).
+
+    Training loss is still falling at the end of these runs, so a later
+    checkpoint is the better prior; the diagnostic only overrides it when the
+    drop is larger than its own noise floor. Raising --diag-n-samples shrinks
+    that floor and makes the rule more discriminating.
+    See tests/test_best_checkpoint_selection.py, which replays the real v11
+    history.
+    """
+    if best_rate is None:
+        return True
+    return candidate_rate >= best_rate - selection_margin(best_rate, candidate_rate, n_samples)
+
+
+def run_validity_diagnostics(model, condition_label, sizes_pool, n_samples, n_steps, device, rng,
+                              no_hydrogens: bool = False):
     """Sample n_samples molecules under a fixed condition label, sizes
     drawn from sizes_pool, and report (validity_rate, single_molecule_rate)
-    — both in-memory (no file I/O). validity_rate is the plain RDKit
-    sanitization rate (bond perception + valence rules); single_molecule_rate
-    is the stricter subset of those that also form one connected molecule
-    rather than 2+ disconnected fragments (RDKit's SanitizeMol doesn't
-    require connectivity, so a "valid" result can still be several
-    disjoint pieces — e.g. a SMILES containing '.').
+    — both in-memory (no file I/O).
+
+    With explicit hydrogens (no_hydrogens=False): validity_rate is the plain
+    RDKit sanitization rate (bond perception + valence rules);
+    single_molecule_rate is the stricter subset of those that also form one
+    connected molecule rather than 2+ disconnected fragments (RDKit's
+    SanitizeMol doesn't require connectivity, so a "valid" result can still
+    be several disjoint pieces — e.g. a SMILES containing '.').
+
+    On heavy-atom-only data (no_hydrogens=True) that pipeline cannot be used
+    at all: RDKit's DetermineBonds assigns bond orders by balancing valences
+    against the explicit hydrogens, so without them it fails on essentially
+    every molecule and would report ~0% regardless of quality. Instead the
+    heavy-atom checks are used (see heavy_atom_eval.py, calibrated to 100% on
+    real stripped conformers): validity_rate = valences physically possible,
+    single_molecule_rate = that AND one connected component ("plausible").
+    The two modes are NOT comparable to each other.
     """
     sizes = rng.choice(sizes_pool, size=n_samples, replace=True)
     n_max = int(max(sizes))
@@ -137,9 +198,14 @@ def run_validity_diagnostics(model, condition_label, sizes_pool, n_samples, n_st
 
     x_t, h_t = model.sample(node_mask, cond=cond, n_steps=n_steps, device=device)
     molecules = molecules_from_output(x_t, h_t, node_mask)
-    mols = [mol_from_coords(symbols, coords) for symbols, coords in molecules]
-    n_valid = sum(1 for m in mols if m is not None)
-    n_single = sum(1 for m in mols if m is not None and n_fragments(m) == 1)
+    if no_hydrogens:
+        checks = [heavy_atom_checks(symbols, coords) for symbols, coords in molecules]
+        n_valid = sum(1 for c in checks if c["valence_ok"])
+        n_single = sum(1 for c in checks if c["plausible"])
+    else:
+        mols = [mol_from_coords(symbols, coords) for symbols, coords in molecules]
+        n_valid = sum(1 for m in mols if m is not None)
+        n_single = sum(1 for m in mols if m is not None and n_fragments(m) == 1)
     return n_valid / len(molecules), n_single / len(molecules)
 
 
@@ -174,6 +240,10 @@ def main():
     p.add_argument("--diag-every", type=int, default=25, help="Epochs between validity diagnostics (0 disables).")
     p.add_argument("--diag-n-samples", type=int, default=64)
     p.add_argument("--diag-n-steps", type=int, default=200, help="Diffusion steps used for diagnostic sampling (fewer = faster).")
+    p.add_argument("--no-hydrogens", action="store_true",
+                    help="The datasets contain heavy atoms only (built with strip_hydrogens.py): "
+                         "use the heavy-atom validity checks for the periodic diagnostics, since the "
+                         "with-H RDKit pipeline reports ~0%% on such data regardless of quality.")
     p.add_argument("--angle-loss-weight", type=float, default=0.0,
                     help="Weight for the auxiliary angle-consistency penalty (0 disables it, "
                          "fully backward compatible). Penalizes near-60-degree angles among each "
@@ -223,6 +293,8 @@ def main():
             opt.load_state_dict(ckpt["optimizer_state"])
         else:
             print("   [resume] checkpoint has no optimizer_state (older format) — starting Adam moments fresh.")
+        # the restored state carries the LR the previous run ended on; --lr wins
+        reset_optimizer_lr(opt, args.lr)
         start_epoch = ckpt.get("epoch", -1) + 1
         print(f"Resumed from {args.resume} (checkpoint epoch {ckpt.get('epoch')}); "
               f"continuing as global epoch {start_epoch}, running {args.epochs} more epochs "
@@ -256,16 +328,17 @@ def main():
             return tagged_path
         return None
 
-    # Tracks the checkpoint with the best PARP-conditioned single-molecule
-    # rate seen so far (the stricter of the two diagnostic metrics — one
-    # fully connected, chemically valid molecule, not just RDKit-sanitized
-    # fragments). Loss (loss_x/loss_h) can plateau or even look flat while
-    # validity is still non-monotonic across epochs (confirmed via
-    # eval_checkpoint_trend.py: the final epoch of a run is not always the
-    # best-validating one), so this is tracked independently of --ckpt-every
-    # and never overwritten by a later, worse-validating epoch.
-    best_pos_single = -1.0
+    # Keeps one checkpoint chosen by the PARP-conditioned single-molecule rate
+    # (the stricter diagnostic metric — one fully connected, chemically valid
+    # molecule, not just RDKit-sanitized fragments), tracked independently of
+    # --ckpt-every. The rate is noisy at --diag-n-samples molecules, so the
+    # rule is "keep the later epoch unless it is significantly worse": see
+    # should_replace_best(). best_pos_single is the best rate ever observed,
+    # which is what a candidate is judged against; kept_epoch/kept_rate
+    # describe the checkpoint actually on disk, and the two can differ.
+    best_pos_single = None
     best_path = None
+    kept_epoch, kept_rate = None, None
 
     for epoch in range(args.epochs):
         global_epoch = start_epoch + epoch
@@ -313,21 +386,30 @@ def main():
             # the just-updated raw weights, especially mid-training.
             null_validity, null_single = run_validity_diagnostics(
                 ema.shadow, COND_NULL, filtered_sizes, args.diag_n_samples, args.diag_n_steps, device, rng,
+                no_hydrogens=args.no_hydrogens,
             )
             pos_validity, pos_single = run_validity_diagnostics(
                 ema.shadow, COND_POSITIVE, parp_sizes, args.diag_n_samples, args.diag_n_steps, device, rng,
+                no_hydrogens=args.no_hydrogens,
             )
             print(f"   [diagnostics] validity (single-molecule) — "
                   f"null: {null_validity:.1%} ({null_single:.1%}), "
                   f"PARP-conditioned: {pos_validity:.1%} ({pos_single:.1%})")
 
-            if pos_single > best_pos_single:
-                best_pos_single = pos_single
+            if should_replace_best(best_pos_single, pos_single, args.diag_n_samples):
                 base, ext = os.path.splitext(args.out)
                 best_path = f"{base}_best{ext}"
                 torch.save(build_checkpoint_payload(global_epoch), best_path)
-                print(f"   [checkpoint] new best PARP-conditioned single-molecule rate "
-                      f"({pos_single:.1%}) at epoch {global_epoch} — saved to {best_path}")
+                kept_epoch, kept_rate = global_epoch, pos_single
+                how = ("first diagnostic" if best_pos_single is None
+                       else f"within {selection_margin(best_pos_single, pos_single, args.diag_n_samples):.1%} "
+                            f"of the best seen ({best_pos_single:.1%})")
+                print(f"   [checkpoint] keeping epoch {global_epoch} as best "
+                      f"({pos_single:.1%}, {how}) — saved to {best_path}")
+            else:
+                print(f"   [checkpoint] epoch {global_epoch} ({pos_single:.1%}) is significantly "
+                      f"below the best seen ({best_pos_single:.1%}); keeping epoch {kept_epoch}")
+            best_pos_single = pos_single if best_pos_single is None else max(best_pos_single, pos_single)
 
         if args.ckpt_every and epoch > 0 and (epoch % args.ckpt_every == 0):
             tagged = save_checkpoint(global_epoch, also_tag=True)
@@ -336,11 +418,14 @@ def main():
     final_tagged = save_checkpoint(start_epoch + args.epochs - 1, also_tag=True)
     print(f"Saved final checkpoint to {args.out} (and {final_tagged})")
     if best_path:
-        print(f"Best PARP-conditioned single-molecule rate during this run: "
-              f"{best_pos_single:.1%}, saved separately to {best_path} "
-              f"(NOT necessarily the same as the final/latest checkpoint above — "
-              f"validity is not monotonic across epochs, so prefer this one for "
-              f"generation unless you have a specific reason to use the final epoch).")
+        print(f"Kept epoch {kept_epoch} as {best_path} (diagnostic {kept_rate:.1%}; "
+              f"best rate seen during the run was {best_pos_single:.1%}).")
+        print(f"The diagnostic samples only {args.diag_n_samples} molecules at "
+              f"{args.diag_n_steps} steps, so differences below roughly "
+              f"{selection_margin(best_pos_single, best_pos_single, args.diag_n_samples):.0%} "
+              f"are noise and it cannot rank late epochs. It is used to reject a collapsed "
+              f"epoch, not to pick a winner: for that, evaluate the last few tagged "
+              f"checkpoints with scripts/compare_chemistry.py (256 samples, 500 steps).")
 
 
 if __name__ == "__main__":
